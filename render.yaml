@@ -16,10 +16,6 @@ services:
         value: /var/data
       - key: YIQI_ENABLE_CREATE
         value: "false"
-      - key: YIQI_USER
-        sync: false
-      - key: YIQI_PASSWORD
-        sync: false
     disk:
       name: dentalab-data
       mountPath: /var/data
