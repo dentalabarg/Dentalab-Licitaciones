@@ -3,7 +3,7 @@ services:
     name: dentalab-licitaciones-ia
     runtime: docker
     region: virginia
-    plan: starter
+    plan: free
     healthCheckPath: /healthz
     envVars:
       - key: OPENAI_API_KEY
@@ -13,10 +13,6 @@ services:
       - key: APP_ACCESS_KEY
         sync: false
       - key: DATA_DIR
-        value: /var/data
+        value: /tmp/dentalab-data
       - key: YIQI_ENABLE_CREATE
         value: "false"
-    disk:
-      name: dentalab-data
-      mountPath: /var/data
-      sizeGB: 1
