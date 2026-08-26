@@ -67,4 +67,31 @@ app.get("/api/jobs", async(_req,res)=>{const jobs=await readJson("jobs.json",[])
 app.get("/api/jobs/:id", async(req,res,next)=>{try{const jobs=await readJson("jobs.json",[]),j=jobs.find(x=>x.id===req.params.id);if(!j)return res.status(404).json({ok:false,error:"Trabajo no encontrado."});res.json(j)}catch(e){next(e)}});
 app.put("/api/jobs/:id", async(req,res,next)=>{try{
   const jobs=await readJson("jobs.json",[]), i=jobs.findIndex(x=>x.id===req.params.id); if(i<0)return res.status(404).json({ok:false,error:"Trabajo no encontrado."});
-  const selected=Array.isArray(req.body.selected)?req.body.selected:jobs[i
+  const selected=Array.isArray(req.body.selected)?req.body.selected:jobs[i].selected||[];
+  jobs[i]={...jobs[i],selected,hasSavedSelection:true,status:req.body.status||jobs[i].status,client:req.body.client??jobs[i].client,updatedAt:new Date().toISOString()}; await writeJson("jobs.json",jobs);res.json({ok:true,job:jobs[i]});
+}catch(e){next(e)}});
+
+app.post("/api/aprendizaje", async(req,res,next)=>{try{
+  const {client,mappings}=req.body;if(!Array.isArray(mappings))throw new Error("mappings debe ser un array.");
+  const existing=await readJson("knowledge.json",[]), now=new Date().toISOString();
+  for(const m of mappings){if(!m.texto_original||!m.sku)continue;const record={cliente:client||"",texto_original:m.texto_original,texto_normalizado:normalizeText(m.texto_original),sku:String(m.sku),descripcion:m.descripcion||"",tipo_relacion:m.tipo_relacion||"validada",prioridad:m.prioridad||100,createdAt:now};const duplicate=existing.some(x=>normalizeText(x.cliente)===normalizeText(record.cliente)&&x.texto_normalizado===record.texto_normalizado&&String(x.sku)===record.sku);if(!duplicate)existing.push(record)}
+  await writeJson("knowledge.json",existing);res.json({ok:true,knowledgeCount:existing.length});
+}catch(e){next(e)}});
+
+app.post("/api/export/xlsx", (req,res,next)=>{try{
+  const rows=Array.isArray(req.body.rows)?req.body.rows:[];if(!rows.length)throw new Error("No hay SKU seleccionados para exportar.");
+  const data=rows.map(r=>({Renglon:r.renglon??"",Solicitado:r.solicitado??"",SKU:r.sku??"",Descripcion:r.descripcion??"",Cantidad:r.cantidad??""}));
+  const ws=XLSX.utils.json_to_sheet(data), wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Pedido");ws["!cols"]=[{wch:10},{wch:65},{wch:18},{wch:65},{wch:12}];
+  const buf=XLSX.write(wb,{type:"buffer",bookType:"xlsx"});res.setHeader("Content-Type","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");res.setHeader("Content-Disposition",`attachment; filename=pedido_sku_${new Date().toISOString().slice(0,10)}.xlsx`);res.send(buf);
+}catch(e){next(e)}});
+
+app.get("/api/yiqi/status", async(_req,res,next)=>{try{const info=await getLoginInfo();res.json({ok:true,schemaId:info.schemaId||info.SchemaId||info.schemas?.[0]?.id||null});}catch(e){next(e)}});
+app.get("/api/yiqi/pedido/:id", async(req,res,next)=>{try{res.json(await inspectPedido(req.params.id));}catch(e){next(e)}});
+app.post("/api/yiqi/pedido", async(req,res,next)=>{try{res.json(await createPedido(req.body));}catch(e){next(e)}});
+
+app.get("/healthz", (_req,res)=>res.json({ok:true}));
+app.use(express.static(path.join(__dirname,"public")));
+app.get("/*splat", (_req,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
+app.use((err,_req,res,_next)=>{console.error(err);res.status(400).json({ok:false,error:err.message||String(err)})});
+
+const port=Number(process.env.PORT||8788);app.listen(port,()=>console.log(`Dentalab Licitaciones Web listo en puerto ${port}`));
