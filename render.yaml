@@ -6,10 +6,10 @@ services:
     plan: free
     healthCheckPath: /healthz
     envVars:
-      - key: OPENAI_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
-      - key: OPENAI_MODEL
-        value: gpt-5.6-terra
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
       - key: APP_ACCESS_KEY
         sync: false
       - key: DATA_DIR
