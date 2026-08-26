@@ -39,6 +39,24 @@ const matchSchema = {
   , required: ["resultados"]
 };
 
+function htmlToText(html) {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<(br|\/p|\/div|\/tr|\/li|\/h[1-6])[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function fileToText(file) {
   const ext = file.originalname.toLowerCase().split(".").pop();
   if (["xlsx","xls","xlsm","csv"].includes(ext)) {
@@ -55,6 +73,7 @@ async function fileToText(file) {
     return `ARCHIVO: ${file.originalname}\n${result.value}`;
   }
   if (["txt","md"].includes(ext)) return `ARCHIVO: ${file.originalname}\n${file.buffer.toString("utf8")}`;
+  if (["html","htm"].includes(ext)) return `ARCHIVO: ${file.originalname}\n${htmlToText(file.buffer.toString("utf8"))}`;
   return null;
 }
 
