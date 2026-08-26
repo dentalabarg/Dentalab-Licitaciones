@@ -124,4 +124,37 @@ export async function extractRequest({ files = [], pastedText = "", clientName =
     messages: [{ role: "user", content }],
     response_format: { type: "json_schema", json_schema: { name: "solicitud_cotizacion", strict: true, schema: extractionSchema } }
   });
-  return
+  return JSON.parse(response.choices[0].message.content);
+}
+
+function memoryForItem(item, knowledge, clientName) {
+  const q = normalizeText(item.descripcion);
+  return knowledge.filter(k => {
+    const clientOk = !clientName || !k.cliente || normalizeText(k.cliente) === normalizeText(clientName);
+    const mem = normalizeText(k.texto_original || k.texto_normalizado || "");
+    if (!clientOk || !mem) return false;
+    return q.includes(mem.slice(0, Math.min(mem.length, 36))) || mem.includes(q.slice(0, Math.min(q.length, 36)));
+  }).sort((a,b) => Number(b.prioridad || 0) - Number(a.prioridad || 0)).slice(0, 10);
+}
+
+export async function matchItems({ extractedItems, catalog, knowledge, clientName }) {
+  const client = getClient();
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const payload = extractedItems.map((item, itemIndex) => ({
+    itemIndex,
+    solicitado: item,
+    candidatos_catalogo: topCandidates(`${item.descripcion} ${item.marca_requerida || ""} ${item.presentacion || ""} ${(item.restricciones || []).join(" ")}`, catalog, 24)
+      .map(c => ({ sku:c.sku, descripcion:c.descripcion, marca:c.marca, stock:c.stock, precio:c.precio, score_lexico:Number(c.lexicalScore.toFixed(2)) })),
+    relaciones_confirmadas_previas: memoryForItem(item, knowledge, clientName)
+  }));
+
+  const response = await client.chat.completions.create({
+    model,
+    reasoning_effort: "medium",
+    messages: [{ role: "user", content: [{ type: "text", text: `Actuás como especialista en insumos odontológicos y armado de licitaciones. Elegí del catálogo únicamente opciones plausibles para cada renglón.\n\nREGLAS:\n1. Un renglón puede tener 0, 1 o VARIAS opciones válidas; conservar alternativas reales.\n2. Nunca inventar SKU: sólo devolver SKU de candidatos_catalogo o relaciones_confirmadas_previas.\n3. Validar tipo de producto, medida/calibre/número, presentación, marca obligatoria y compatibilidad.\n4. Si una diferencia impide cumplir técnicamente, no sugerir.\n5. confianza = 0 a 100. Menos de 70 requiere revisión.\n6. cantidad_a_cargar normalmente coincide con la cantidad solicitada. Si hay conversión de presentación dudosa, mantener cantidad solicitada y requiere_revision_cantidad=true.\n7. No forzar coincidencias: cero opciones es válido.\n8. Las relaciones confirmadas previamente tienen prioridad, pero sólo si siguen siendo compatibles con la solicitud actual.\n\nCliente: ${clientName || "sin especificar"}\n\nDATOS:\n${JSON.stringify(payload)}` }] }],
+    response_format: { type: "json_schema", json_schema: { name: "matching_catalogo", strict: true, schema: matchSchema } }
+  });
+  const result = JSON.parse(response.choices[0].message.content);
+  const catalogBySku = new Map(catalog.map(c => [String(c.sku), c]));
+  return result.resultados.map(r => ({ ...r, opciones: r.opciones.map(o => ({ ...o, ...(catalogBySku.get(String(o.sku)) || {}) })) }));
+}
