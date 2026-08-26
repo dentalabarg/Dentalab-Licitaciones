@@ -8,7 +8,7 @@ El repositorio incluye `render.yaml` y un `Dockerfile` de producción. La aplica
 
 Variables secretas requeridas en Render:
 
-- `OPENAI_API_KEY`
+- `GEMINI_API_KEY` (clave gratuita de Google AI Studio, sin tarjeta de crédito — https://aistudio.google.com/apikey)
 - `APP_ACCESS_KEY`
 
 Variables YiQi opcionales hasta cerrar el mapeo:
