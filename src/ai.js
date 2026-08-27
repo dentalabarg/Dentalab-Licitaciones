@@ -105,7 +105,7 @@ function directFileContent(file) {
 
 export async function extractRequest({ files = [], pastedText = "", clientName = "" }) {
   const client = getClient();
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const textChunks = [], direct = [];
   for (const file of files) {
     const text = await fileToText(file);
@@ -139,7 +139,7 @@ function memoryForItem(item, knowledge, clientName) {
 
 export async function matchItems({ extractedItems, catalog, knowledge, clientName }) {
   const client = getClient();
-  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
   const payload = extractedItems.map((item, itemIndex) => ({
     itemIndex,
     solicitado: item,
